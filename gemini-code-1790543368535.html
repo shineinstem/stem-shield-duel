@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STEM Shield Duel: Mech Training Arena</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #05010c;
+      color: #e0f2fe;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+    #game-container {
+      position: relative;
+      width: 960px;
+      height: 560px;
+      border: 2px solid #00f0ff;
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.35), inset 0 0 20px rgba(168, 85, 247, 0.3);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #090314;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    #hud-top {
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 700;
+      text-shadow: 0 0 8px #00f0ff;
+      pointer-events: none;
+    }
+    .hud-chip {
+      background: rgba(10, 15, 30, 0.75);
+      border: 1px solid #00f0ff;
+      padding: 8px 16px;
+      border-radius: 6px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+    #puzzle-overlay {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(8, 4, 20, 0.88);
+      border: 1px solid #a855f7;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);
+      padding: 12px 24px;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      backdrop-filter: blur(8px);
+    }
+    #puzzle-title {
+      font-size: 13px;
+      color: #38bdf8;
+      letter-spacing: 1px;
+      text-shadow: 0 0 6px #38bdf8;
+    }
+    #math-problem {
+      font-size: 22px;
+      font-weight: bold;
+      color: #fff;
+      letter-spacing: 2px;
+      text-shadow: 0 0 12px #a855f7;
+    }
+    .choice-group {
+      display: flex;
+      gap: 12px;
+    }
+    .choice-btn {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid #00f0ff;
+      color: #fff;
+      font-weight: bold;
+      font-size: 16px;
+      padding: 6px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .choice-btn:hover {
+      background: #00f0ff;
+      color: #05010d;
+      box-shadow: 0 0 14px #00f0ff;
+      transform: translateY(-2px);
+    }
+    #game-over-screen {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 1, 10, 0.92);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 15px;
+      z-index: 10;
+    }
+    #game-over-screen h1 {
+      font-size: 38px;
+      color: #f43f5e;
+      text-shadow: 0 0 16px #f43f5e;
+    }
+    .restart-btn {
+      padding: 10px 24px;
+      background: #00f0ff;
+      border: none;
+      border-radius: 6px;
+      color: #030712;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 0 15px #00f0ff;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <canvas id="gameCanvas" width="960" height="560"></canvas>
+
+    <div id="hud-top">
+      <div class="hud-chip">SHIELD CHARGE: <span id="shield-count">3</span> / 3</div>
+      <div class="hud-chip">CORE SYNC: <span id="score-count">0</span>%</div>
+    </div>
+
+    <div id="puzzle-overlay">
+      <div id="puzzle-title">CALIBRATE SHIELD HARMONICS (Hz)</div>
+      <div id="math-problem">CALCULATING...</div>
+      <div class="choice-group" id="choices-box"></div>
+    </div>
+
+    <div id="game-over-screen">
+      <h1>SHIELD OVERLOAD</h1>
+      <p id="final-stats" style="letter-spacing: 1px;">Training Overload Sync: 0%</p>
+      <button class="restart-btn" onclick="resetGame()">RECALIBRATE CORE</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 1. Asset Image Loading
+    const heroImg = new Image();
+    heroImg.src = 'hero.png';
+
+    const mechImg = new Image();
+    mechImg.src = 'mech.png';
+
+    const bgImg = new Image();
+    bgImg.src = 'arena-bg.jpg';
+
+    // Audio FX
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, type = 'sine', duration = 0.15) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    let health = 3;
+    let score = 0;
+    let gameOver = false;
+    let particles = [];
+    let currentProblem = null;
+    let shieldActiveTimer = 0;
+
+    // Hero Entity (Configured to render your cut-out hero sprite)
+    const hero = {
+      x: 100,
+      y: 240,
+      width: 220,
+      height: 270,
+      draw() {
+        if (heroImg.complete && heroImg.naturalHeight !== 0) {
+          ctx.drawImage(heroImg, this.x, this.y, this.width, this.height);
+        } else {
+          // Fallback silhouette if image isn't loaded yet
+          ctx.fillStyle = '#38bdf8';
+          ctx.fillRect(this.x + 80, this.y + 60, 60, 180);
+        }
+
+        // Render Animated Energy Shield when Active
+        if (shieldActiveTimer > 0) {
+          ctx.save();
+          ctx.strokeStyle = '#00f0ff';
+          ctx.lineWidth = 4;
+          ctx.shadowColor = '#00f0ff';
+          ctx.shadowBlur = 30;
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+          
+          const hx = this.x + 230;
+          const hy = this.y + 110;
+          const size = 80;
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i;
+            const px = hx + size * Math.cos(angle);
+            const py = hy + size * Math.sin(angle);
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+          ctx.fill();
+
+          // Hexagonal inner telemetry grid
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(hx, hy - size);
+          ctx.lineTo(hx, hy + size);
+          ctx.moveTo(hx - size * 0.866, hy);
+          ctx.lineTo(hx + size * 0.866, hy);
+          ctx.stroke();
+          ctx.restore();
+
+          shieldActiveTimer--;
+        }
+      }
+    };
+
+    // Mech Entity (Configured to render your cut-out Mech sprite)
+    const mech = {
+      x: 640,
+      y: 120,
+      width: 320,
+      height: 400,
+      draw() {
+        if (mechImg.complete && mechImg.naturalHeight !== 0) {
+          ctx.drawImage(mechImg, this.x, this.y, this.width, this.height);
+        } else {
+          // Fallback placeholder
+          ctx.fillStyle = '#a855f7';
+          ctx.fillRect(this.x + 40, this.y + 40, 180, 280);
+        }
+
+        // Cannon muzzle charging flare
+        ctx.beginPath();
+        ctx.arc(this.x + 20, this.y + 240, 8 + Math.sin(Date.now() * 0.02) * 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#00f0ff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 20;
+        ctx.fill();
+      }
+    };
+
+    let projectiles = [];
+
+    class PlasmaBlast {
+      constructor(speed) {
+        this.x = mech.x + 20;
+        this.y = mech.y + 240;
+        this.radius = 16;
+        this.speed = speed;
+      }
+      update() {
+        this.x -= this.speed;
+        if (Math.random() < 0.6) {
+          particles.push(new Particle(this.x + 12, this.y, '#00f0ff'));
+        }
+      }
+      draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 25;
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius + 6, 0, Math.PI * 2);
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.vx = (Math.random() - 0.5) * 7;
+        this.vy = (Math.random() - 0.5) * 7;
+        this.alpha = 1;
+        this.size = Math.random() * 4 + 2;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= 0.035;
+      }
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, this.alpha);
+        ctx.fillStyle = this.color;
+        ctx.shadowColor = this.color;
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    function generateQuestion() {
+      const types = ['add', 'mult', 'freq'];
+      const chosen = types[Math.floor(Math.random() * types.length)];
+      let text = '';
+      let correct = 0;
+
+      if (chosen === 'add') {
+        const a = Math.floor(Math.random() * 24) + 12;
+        const b = Math.floor(Math.random() * 24) + 8;
+        text = `HARMONIC: ${a} + ${b} = ?`;
+        correct = a + b;
+      } else if (chosen === 'mult') {
+        const a = Math.floor(Math.random() * 8) + 4;
+        const b = Math.floor(Math.random() * 9) + 3;
+        text = `AMPLITUDE: ${a} × ${b} = ?`;
+        correct = a * b;
+      } else {
+        const f = Math.floor(Math.random() * 4) + 2;
+        text = `FREQUENCY: 180 / ${f} = ?`;
+        correct = 180 / f;
+      }
+
+      const choices = [correct];
+      while (choices.length < 3) {
+        const delta = (Math.random() < 0.5 ? -1 : 1) * (Math.floor(Math.random() * 6) + 3);
+        const wrong = correct + delta;
+        if (!choices.includes(wrong) && wrong > 0) choices.push(wrong);
+      }
+      choices.sort(() => Math.random() - 0.5);
+
+      currentProblem = { text, correct, choices };
+      renderPuzzleUI();
+    }
+
+    function renderPuzzleUI() {
+      document.getElementById('math-problem').innerText = currentProblem.text;
+      const box = document.getElementById('choices-box');
+      box.innerHTML = '';
+      currentProblem.choices.forEach(val => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.innerText = `${val} Hz`;
+        btn.onclick = () => verifyAnswer(val);
+        box.appendChild(btn);
+      });
+    }
+
+    function verifyAnswer(chosen) {
+      if (gameOver) return;
+
+      if (chosen === currentProblem.correct) {
+        shieldActiveTimer = 40;
+        playTone(587.33, 'triangle', 0.2);
+        setTimeout(() => playTone(880, 'sine', 0.25), 100);
+
+        if (projectiles.length > 0) {
+          const blast = projectiles[0];
+          for (let i = 0; i < 30; i++) {
+            particles.push(new Particle(blast.x, blast.y, '#00f0ff'));
+            particles.push(new Particle(blast.x, blast.y, '#a855f7'));
+          }
+          projectiles.shift();
+          score += 15;
+          document.getElementById('score-count').innerText = score;
+        }
+        generateQuestion();
+      } else {
+        playTone(110, 'sawtooth', 0.35);
+        document.getElementById('puzzle-overlay').style.borderColor = '#ef4444';
+        setTimeout(() => {
+          document.getElementById('puzzle-overlay').style.borderColor = '#a855f7';
+        }, 300);
+      }
+    }
+
+    function drawBackground() {
+      if (bgImg.complete && bgImg.naturalHeight !== 0) {
+        // Draw image backdrop with a dark vignette overlay so characters pop
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(5, 2, 15, 0.45)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        // Fallback procedural cyberpunk backdrop
+        ctx.fillStyle = '#060212';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Ground grid
+        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= canvas.width; i += 45) {
+          ctx.beginPath();
+          ctx.moveTo(i, 400);
+          ctx.lineTo(i - (canvas.width / 2 - i) * 0.7, canvas.height);
+          ctx.stroke();
+        }
+        for (let y = 400; y <= canvas.height; y += 25) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+      }
+    }
+
+    let lastSpawn = 0;
+    function manageSpawns(time) {
+      if (gameOver) return;
+      if (projectiles.length === 0 && time - lastSpawn > 3200) {
+        projectiles.push(new PlasmaBlast(4.0));
+        playTone(349.23, 'square', 0.2);
+        lastSpawn = time;
+      }
+    }
+
+    function checkCollisions() {
+      if (projectiles.length > 0) {
+        const p = projectiles[0];
+        if (p.x <= hero.x + 230) {
+          if (shieldActiveTimer > 0) {
+            for (let i = 0; i < 25; i++) particles.push(new Particle(p.x, p.y, '#00f0ff'));
+            projectiles.shift();
+            score += 15;
+            document.getElementById('score-count').innerText = score;
+          } else {
+            for (let i = 0; i < 25; i++) particles.push(new Particle(p.x, p.y, '#f43f5e'));
+            playTone(80, 'sawtooth', 0.4);
+            projectiles.shift();
+            health--;
+            document.getElementById('shield-count').innerText = health;
+            if (health <= 0) triggerGameOver();
+          }
+        }
+      }
+    }
+
+    function triggerGameOver() {
+      gameOver = true;
+      document.getElementById('puzzle-overlay').style.display = 'none';
+      document.getElementById('final-stats').innerText = `Mech Overload Sync Averted: ${score}%`;
+      document.getElementById('game-over-screen').style.display = 'flex';
+    }
+
+    function resetGame() {
+      health = 3;
+      score = 0;
+      gameOver = false;
+      projectiles = [];
+      particles = [];
+      shieldActiveTimer = 0;
+      document.getElementById('shield-count').innerText = health;
+      document.getElementById('score-count').innerText = score;
+      document.getElementById('puzzle-overlay').style.display = 'flex';
+      document.getElementById('game-over-screen').style.display = 'none';
+      generateQuestion();
+    }
+
+    function loop(time) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      drawBackground();
+      hero.draw();
+      mech.draw();
+
+      manageSpawns(time);
+
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        projectiles[i].update();
+        projectiles[i].draw();
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw();
+        if (particles[i].alpha <= 0) particles.splice(i, 1);
+      }
+
+      checkCollisions();
+      requestAnimationFrame(loop);
+    }
+
+    generateQuestion();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
