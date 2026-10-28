@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>STEM Shield Duel: Mech Training Arena</title>
   <style>
     * {
@@ -10,9 +10,11 @@
       margin: 0;
       padding: 0;
       user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
     }
     body {
-      background-color: #05010c;
+      background-color: #060212;
       color: #e0f2fe;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
@@ -20,143 +22,169 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
+      width: 100vw;
       overflow: hidden;
+      padding: 10px;
     }
+    /* Responsive Scaling Container */
     #game-container {
       position: relative;
-      width: 960px;
-      height: 560px;
+      width: 100%;
+      max-width: 980px;
+      aspect-ratio: 980 / 580; /* Maintains exact 16:9.5 ratio on all screens */
       border: 2px solid #00f0ff;
-      box-shadow: 0 0 30px rgba(0, 240, 255, 0.35), inset 0 0 20px rgba(168, 85, 247, 0.3);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.4), inset 0 0 20px rgba(168, 85, 247, 0.3);
       border-radius: 12px;
       overflow: hidden;
-      background: #090314;
+      background: radial-gradient(circle at 50% 15%, #1e0938 0%, #05010c 90%);
     }
     canvas {
       display: block;
       width: 100%;
       height: 100%;
+      object-fit: contain;
     }
+    /* Top HUD */
     #hud-top {
       position: absolute;
-      top: 14px;
-      left: 20px;
-      right: 20px;
+      top: 3%;
+      left: 3%;
+      right: 3%;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 14px;
-      letter-spacing: 2px;
+      font-size: clamp(10px, 1.8vw, 14px);
+      letter-spacing: 1.5px;
       text-transform: uppercase;
       font-weight: 700;
-      text-shadow: 0 0 8px #00f0ff;
+      text-shadow: 0 0 10px #00f0ff;
       pointer-events: none;
+      z-index: 5;
     }
     .hud-chip {
-      background: rgba(10, 15, 30, 0.75);
+      background: rgba(15, 23, 42, 0.85);
       border: 1px solid #00f0ff;
-      padding: 8px 16px;
+      padding: clamp(4px, 1vw, 8px) clamp(8px, 1.8vw, 18px);
       border-radius: 6px;
-      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
     }
+    /* STEM Frequency Console (Responsive Overlay) */
     #puzzle-overlay {
       position: absolute;
-      bottom: 20px;
+      bottom: 3.5%;
       left: 50%;
       transform: translateX(-50%);
-      background: rgba(8, 4, 20, 0.88);
-      border: 1px solid #a855f7;
-      box-shadow: 0 0 25px rgba(168, 85, 247, 0.45);
-      padding: 12px 24px;
+      width: 85%;
+      max-width: 550px;
+      background: rgba(10, 5, 25, 0.92);
+      border: 2px solid #a855f7;
+      box-shadow: 0 0 25px rgba(168, 85, 247, 0.5);
+      padding: clamp(8px, 1.8vw, 14px) clamp(12px, 2.5vw, 24px);
       border-radius: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 10px;
+      gap: clamp(6px, 1.2vw, 10px);
       backdrop-filter: blur(8px);
+      transition: border-color 0.2s;
+      z-index: 5;
     }
     #puzzle-title {
-      font-size: 13px;
+      font-size: clamp(9px, 1.5vw, 13px);
       color: #38bdf8;
-      letter-spacing: 1px;
+      letter-spacing: 1.2px;
+      font-weight: bold;
       text-shadow: 0 0 6px #38bdf8;
+      text-align: center;
     }
     #math-problem {
-      font-size: 22px;
+      font-size: clamp(14px, 2.6vw, 22px);
       font-weight: bold;
-      color: #fff;
-      letter-spacing: 2px;
+      color: #ffffff;
+      letter-spacing: 1.5px;
       text-shadow: 0 0 12px #a855f7;
     }
     .choice-group {
       display: flex;
-      gap: 12px;
+      gap: clamp(8px, 1.5vw, 14px);
+      width: 100%;
+      justify-content: center;
     }
     .choice-btn {
-      background: rgba(56, 189, 248, 0.12);
+      background: rgba(56, 189, 248, 0.15);
       border: 1px solid #00f0ff;
       color: #fff;
       font-weight: bold;
-      font-size: 16px;
-      padding: 6px 18px;
+      font-size: clamp(12px, 2vw, 16px);
+      padding: clamp(6px, 1.2vw, 8px) clamp(10px, 2vw, 20px);
       border-radius: 6px;
       cursor: pointer;
+      outline: none;
       transition: all 0.15s ease;
+      touch-action: manipulation;
     }
-    .choice-btn:hover {
+    .choice-btn:active, .choice-btn:hover {
       background: #00f0ff;
       color: #05010d;
       box-shadow: 0 0 14px #00f0ff;
       transform: translateY(-2px);
     }
+    /* Game Over Modal */
     #game-over-screen {
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(4, 1, 10, 0.92);
+      background: rgba(4, 1, 10, 0.95);
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 15px;
+      gap: 14px;
       z-index: 10;
+      padding: 20px;
+      text-align: center;
     }
     #game-over-screen h1 {
-      font-size: 38px;
+      font-size: clamp(20px, 4vw, 36px);
       color: #f43f5e;
-      text-shadow: 0 0 16px #f43f5e;
+      text-shadow: 0 0 18px #f43f5e;
+    }
+    #final-stats {
+      font-size: clamp(12px, 2vw, 16px);
+      letter-spacing: 1px;
     }
     .restart-btn {
-      padding: 10px 24px;
+      padding: clamp(8px, 1.5vw, 12px) clamp(16px, 3vw, 26px);
       background: #00f0ff;
       border: none;
       border-radius: 6px;
       color: #030712;
       font-weight: bold;
-      font-size: 16px;
+      font-size: clamp(12px, 2vw, 16px);
       cursor: pointer;
-      box-shadow: 0 0 15px #00f0ff;
+      box-shadow: 0 0 16px #00f0ff;
     }
   </style>
 </head>
 <body>
 
   <div id="game-container">
-    <canvas id="gameCanvas" width="960" height="560"></canvas>
+    <!-- Internal coordinate canvas remains stable at 980x580 -->
+    <canvas id="gameCanvas" width="980" height="580"></canvas>
 
     <div id="hud-top">
-      <div class="hud-chip">SHIELD CHARGE: <span id="shield-count">3</span> / 3</div>
-      <div class="hud-chip">CORE SYNC: <span id="score-count">0</span>%</div>
+      <div class="hud-chip">SHIELD: <span id="shield-count">3</span> / 3</div>
+      <div class="hud-chip">SYNC: <span id="score-count">0</span>%</div>
     </div>
 
     <div id="puzzle-overlay">
-      <div id="puzzle-title">CALIBRATE SHIELD HARMONICS (Hz)</div>
+      <div id="puzzle-title">SYNCHRONIZE SHIELD FREQUENCY (Hz)</div>
       <div id="math-problem">CALCULATING...</div>
       <div class="choice-group" id="choices-box"></div>
     </div>
 
     <div id="game-over-screen">
       <h1>SHIELD OVERLOAD</h1>
-      <p id="final-stats" style="letter-spacing: 1px;">Training Overload Sync: 0%</p>
+      <p id="final-stats">Core Sync: 0%</p>
       <button class="restart-btn" onclick="resetGame()">RECALIBRATE CORE</button>
     </div>
   </div>
@@ -165,20 +193,26 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
-    // 1. Asset Image Loading
+    // Preload Cutout Assets
     const heroImg = new Image();
     heroImg.src = 'hero.png';
 
     const mechImg = new Image();
     mechImg.src = 'mech.png';
 
-    const bgImg = new Image();
-    bgImg.src = 'arena-bg.jpg';
+    // Native Web Audio Synthesizer
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
 
-    // Audio FX
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function playTone(freq, type = 'sine', duration = 0.15) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (!audioCtx) return;
       try {
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
@@ -193,6 +227,10 @@
       } catch (e) {}
     }
 
+    // Touch / Click unlock for mobile browsers (Audio autoplay policy)
+    window.addEventListener('touchstart', initAudio, { once: true });
+    window.addEventListener('click', initAudio, { once: true });
+
     let health = 3;
     let score = 0;
     let gameOver = false;
@@ -200,33 +238,38 @@
     let currentProblem = null;
     let shieldActiveTimer = 0;
 
-    // Hero Entity (Configured to render your cut-out hero sprite)
+    // Hero Entity (Fixed to 980x580 coordinate system)
     const hero = {
-      x: 100,
-      y: 240,
-      width: 220,
-      height: 270,
+      x: 70,
+      y: 180,
+      width: 250,
+      height: 310,
       draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(this.x + 125, this.y + 295, 75, 14, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 15;
+        ctx.fill();
+        ctx.restore();
+
         if (heroImg.complete && heroImg.naturalHeight !== 0) {
           ctx.drawImage(heroImg, this.x, this.y, this.width, this.height);
-        } else {
-          // Fallback silhouette if image isn't loaded yet
-          ctx.fillStyle = '#38bdf8';
-          ctx.fillRect(this.x + 80, this.y + 60, 60, 180);
         }
 
-        // Render Animated Energy Shield when Active
         if (shieldActiveTimer > 0) {
           ctx.save();
           ctx.strokeStyle = '#00f0ff';
           ctx.lineWidth = 4;
           ctx.shadowColor = '#00f0ff';
           ctx.shadowBlur = 30;
-          ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.22)';
           
           const hx = this.x + 230;
-          const hy = this.y + 110;
-          const size = 80;
+          const hy = this.y + 175;
+          const size = 95;
+          
           ctx.beginPath();
           for (let i = 0; i < 6; i++) {
             const angle = (Math.PI / 3) * i;
@@ -239,7 +282,6 @@
           ctx.stroke();
           ctx.fill();
 
-          // Hexagonal inner telemetry grid
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.moveTo(hx, hy - size);
@@ -254,28 +296,37 @@
       }
     };
 
-    // Mech Entity (Configured to render your cut-out Mech sprite)
+    // Mech Entity (Flipped horizontally to face left)
     const mech = {
-      x: 640,
-      y: 120,
+      x: 620,
+      y: 90,
       width: 320,
       height: 400,
       draw() {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(this.x + 160, this.y + 380, 110, 18, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(168, 85, 247, 0.25)';
+        ctx.shadowColor = '#a855f7';
+        ctx.shadowBlur = 18;
+        ctx.fill();
+
         if (mechImg.complete && mechImg.naturalHeight !== 0) {
-          ctx.drawImage(mechImg, this.x, this.y, this.width, this.height);
-        } else {
-          // Fallback placeholder
-          ctx.fillStyle = '#a855f7';
-          ctx.fillRect(this.x + 40, this.y + 40, 180, 280);
+          ctx.save();
+          ctx.translate(this.x + this.width, this.y);
+          ctx.scale(-1, 1);
+          ctx.drawImage(mechImg, 0, 0, this.width, this.height);
+          ctx.restore();
         }
 
-        // Cannon muzzle charging flare
         ctx.beginPath();
-        ctx.arc(this.x + 20, this.y + 240, 8 + Math.sin(Date.now() * 0.02) * 4, 0, Math.PI * 2);
+        ctx.arc(this.x + 120, this.y + 145, 9 + Math.sin(Date.now() * 0.015) * 4, 0, Math.PI * 2);
         ctx.fillStyle = '#00f0ff';
         ctx.shadowColor = '#00f0ff';
-        ctx.shadowBlur = 20;
+        ctx.shadowBlur = 25;
         ctx.fill();
+
+        ctx.restore();
       }
     };
 
@@ -283,9 +334,9 @@
 
     class PlasmaBlast {
       constructor(speed) {
-        this.x = mech.x + 20;
-        this.y = mech.y + 240;
-        this.radius = 16;
+        this.x = mech.x + 110;
+        this.y = mech.y + 145;
+        this.radius = 18;
         this.speed = speed;
       }
       update() {
@@ -304,7 +355,7 @@
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(this.x, this.y, this.radius + 6, 0, Math.PI * 2);
+        ctx.arc(this.x, this.y, this.radius + 8, 0, Math.PI * 2);
         ctx.strokeStyle = '#a855f7';
         ctx.lineWidth = 3;
         ctx.stroke();
@@ -317,8 +368,8 @@
         this.x = x;
         this.y = y;
         this.color = color;
-        this.vx = (Math.random() - 0.5) * 7;
-        this.vy = (Math.random() - 0.5) * 7;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
         this.alpha = 1;
         this.size = Math.random() * 4 + 2;
       }
@@ -347,8 +398,8 @@
       let correct = 0;
 
       if (chosen === 'add') {
-        const a = Math.floor(Math.random() * 24) + 12;
-        const b = Math.floor(Math.random() * 24) + 8;
+        const a = Math.floor(Math.random() * 25) + 12;
+        const b = Math.floor(Math.random() * 25) + 8;
         text = `HARMONIC: ${a} + ${b} = ?`;
         correct = a + b;
       } else if (chosen === 'mult') {
@@ -358,8 +409,8 @@
         correct = a * b;
       } else {
         const f = Math.floor(Math.random() * 4) + 2;
-        text = `FREQUENCY: 180 / ${f} = ?`;
-        correct = 180 / f;
+        text = `FREQUENCY: 240 / ${f} = ?`;
+        correct = 240 / f;
       }
 
       const choices = [correct];
@@ -382,7 +433,10 @@
         const btn = document.createElement('button');
         btn.className = 'choice-btn';
         btn.innerText = `${val} Hz`;
-        btn.onclick = () => verifyAnswer(val);
+        btn.onclick = (e) => {
+          initAudio();
+          verifyAnswer(val);
+        };
         box.appendChild(btn);
       });
     }
@@ -415,113 +469,51 @@
       }
     }
 
-    function drawBackground() {
-      if (bgImg.complete && bgImg.naturalHeight !== 0) {
-        // Draw image backdrop with a dark vignette overlay so characters pop
-        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(5, 2, 15, 0.45)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else {
-        // Fallback procedural cyberpunk backdrop
-        ctx.fillStyle = '#060212';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const stars = Array.from({ length: 55 }, () => ({
+      x: Math.random() * 980,
+      y: Math.random() * 320,
+      size: Math.random() * 2 + 0.5,
+      alpha: Math.random() * 0.8 + 0.2
+    }));
 
-        // Ground grid
-        ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= canvas.width; i += 45) {
-          ctx.beginPath();
-          ctx.moveTo(i, 400);
-          ctx.lineTo(i - (canvas.width / 2 - i) * 0.7, canvas.height);
-          ctx.stroke();
-        }
-        for (let y = 400; y <= canvas.height; y += 25) {
-          ctx.beginPath();
-          ctx.moveTo(0, y);
-          ctx.lineTo(canvas.width, y);
-          ctx.stroke();
-        }
+    function drawEnvironment() {
+      stars.forEach(s => {
+        ctx.fillStyle = `rgba(255, 255, 255, ${s.alpha})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Distant Ringed Planet
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(490, 80, 36, 0, Math.PI * 2);
+      ctx.fillStyle = '#1e1b4b';
+      ctx.shadowColor = '#818cf8';
+      ctx.shadowBlur = 22;
+      ctx.fill();
+      ctx.ellipse(490, 80, 68, 12, -0.22, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(129, 140, 248, 0.45)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+
+      // Cyber Floor Grid
+      const horizon = 440;
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.22)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= canvas.width; i += 50) {
+        ctx.beginPath();
+        ctx.moveTo(i, horizon);
+        ctx.lineTo(i - (canvas.width / 2 - i) * 0.75, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = horizon; y <= canvas.height; y += 28) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
       }
     }
 
-    let lastSpawn = 0;
-    function manageSpawns(time) {
-      if (gameOver) return;
-      if (projectiles.length === 0 && time - lastSpawn > 3200) {
-        projectiles.push(new PlasmaBlast(4.0));
-        playTone(349.23, 'square', 0.2);
-        lastSpawn = time;
-      }
-    }
-
-    function checkCollisions() {
-      if (projectiles.length > 0) {
-        const p = projectiles[0];
-        if (p.x <= hero.x + 230) {
-          if (shieldActiveTimer > 0) {
-            for (let i = 0; i < 25; i++) particles.push(new Particle(p.x, p.y, '#00f0ff'));
-            projectiles.shift();
-            score += 15;
-            document.getElementById('score-count').innerText = score;
-          } else {
-            for (let i = 0; i < 25; i++) particles.push(new Particle(p.x, p.y, '#f43f5e'));
-            playTone(80, 'sawtooth', 0.4);
-            projectiles.shift();
-            health--;
-            document.getElementById('shield-count').innerText = health;
-            if (health <= 0) triggerGameOver();
-          }
-        }
-      }
-    }
-
-    function triggerGameOver() {
-      gameOver = true;
-      document.getElementById('puzzle-overlay').style.display = 'none';
-      document.getElementById('final-stats').innerText = `Mech Overload Sync Averted: ${score}%`;
-      document.getElementById('game-over-screen').style.display = 'flex';
-    }
-
-    function resetGame() {
-      health = 3;
-      score = 0;
-      gameOver = false;
-      projectiles = [];
-      particles = [];
-      shieldActiveTimer = 0;
-      document.getElementById('shield-count').innerText = health;
-      document.getElementById('score-count').innerText = score;
-      document.getElementById('puzzle-overlay').style.display = 'flex';
-      document.getElementById('game-over-screen').style.display = 'none';
-      generateQuestion();
-    }
-
-    function loop(time) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      drawBackground();
-      hero.draw();
-      mech.draw();
-
-      manageSpawns(time);
-
-      for (let i = projectiles.length - 1; i >= 0; i--) {
-        projectiles[i].update();
-        projectiles[i].draw();
-      }
-
-      for (let i = particles.length - 1; i >= 0; i--) {
-        particles[i].update();
-        particles[i].draw();
-        if (particles[i].alpha <= 0) particles.splice(i, 1);
-      }
-
-      checkCollisions();
-      requestAnimationFrame(loop);
-    }
-
-    generateQuestion();
-    requestAnimationFrame(loop);
-  </script>
-</body>
-</html>
+    let lastSpawn =
